@@ -788,7 +788,17 @@ class SpeechRequestValidator:
                     f"{param} must be an http, https, data, file:// URL, or local path",
                     param=param,
                 )
-            return {"audio_path": str(Path(value).expanduser().resolve())}
+            # A bare local path must satisfy the same policy as file://: once
+            # an allowlist is configured it must resolve inside it, and the
+            # reference must be an existing, size-bounded file. Delegating to
+            # _SpeechReferenceMediaIO.load_file enforces is_file and
+            # MAX_REFERENCE_AUDIO_BYTES that the old direct-return bypassed.
+            try:
+                return self.reference_connector.load_local_path(
+                    value, _SpeechReferenceMediaIO(param)
+                )
+            except (RuntimeError, ValueError, OSError) as exc:
+                raise bad_request(str(exc), param=param) from exc
         try:
             return self.reference_connector.load_resource(
                 value,

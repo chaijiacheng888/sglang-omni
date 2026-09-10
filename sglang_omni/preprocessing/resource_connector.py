@@ -71,6 +71,48 @@ def resolve_allowed_local_media_path(path: str | Path) -> Path:
     return resolved
 
 
+def _assert_path_within_allowed_directory(
+    filepath: Path, allowed_local_media_path: Path
+) -> None:
+    """Require a resolved local path to fall inside the allowlisted directory."""
+    try:
+        filepath.relative_to(allowed_local_media_path)
+    except ValueError:
+        raise ValueError(f"File path {filepath} is not within allowed directory.")
+
+
+def resolve_allowed_local_file(
+    filepath: str | Path, *, allowed_local_media_path: Path | None
+) -> Path:
+    """Resolve a local file path gated by the allowlist.
+
+    ``file://`` references are disabled until ``allowed_local_media_path`` is
+    configured; once set, the resolved path must fall inside it. This is the
+    policy for ``file://`` spellings.
+    """
+    if allowed_local_media_path is None:
+        raise RuntimeError("Local file loading is disabled.")
+    resolved = Path(filepath).expanduser().resolve()
+    _assert_path_within_allowed_directory(resolved, allowed_local_media_path)
+    return resolved
+
+
+def resolve_local_media_path(
+    filepath: str | Path, *, allowed_local_media_path: Path | None
+) -> Path:
+    """Resolve a bare local media path under the allowlist policy.
+
+    Bare local paths are a trusted-local convenience and stay accepted when no
+    allowlist is configured; once ``allowed_local_media_path`` is set, the
+    resolved path must fall inside it. This keeps unconfigured servers
+    backwards compatible while making the allowlist apply to bare paths too.
+    """
+    resolved = Path(filepath).expanduser().resolve()
+    if allowed_local_media_path is not None:
+        _assert_path_within_allowed_directory(resolved, allowed_local_media_path)
+    return resolved
+
+
 def _next_redirect_url(response: httpx.Response) -> str:
     location = response.headers.get("location")
     if not location:
@@ -285,18 +327,26 @@ class MultiModalResourceConnector:
 
     def _load_file_url(self, url_spec: Any, media_io: MediaIO[_M]) -> _M:
         """Load media from a file URL."""
-        if not self.allowed_local_media_path:
-            raise RuntimeError("Local file loading is disabled.")
-
         netloc = url_spec.netloc or ""
         if netloc and netloc != "localhost":
             raise ValueError(f"File URL netloc is not supported: {netloc}")
-        filepath = Path(url2pathname(url_spec.path)).resolve()
+        filepath = resolve_allowed_local_file(
+            url2pathname(url_spec.path),
+            allowed_local_media_path=self.allowed_local_media_path,
+        )
+        return media_io.load_file(filepath)
 
-        try:
-            filepath.relative_to(self.allowed_local_media_path)
-        except ValueError:
-            raise ValueError(f"File path {filepath} is not within allowed directory.")
+    def load_local_path(self, path: str | Path, media_io: MediaIO[_M]) -> _M:
+        """Load media from a bare local path.
+
+        Bare paths keep the trusted-local behavior of unconfigured servers
+        (allowed), but are scoped to ``allowed_local_media_path`` once it is
+        configured. Existence and size checks are delegated to
+        ``media_io.load_file``.
+        """
+        filepath = resolve_local_media_path(
+            path, allowed_local_media_path=self.allowed_local_media_path
+        )
         return media_io.load_file(filepath)
 
     def load_resource(

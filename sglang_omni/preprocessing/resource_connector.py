@@ -71,29 +71,19 @@ def resolve_allowed_local_media_path(path: str | Path) -> Path:
     return resolved
 
 
-def _assert_path_within_allowed_directory(
-    filepath: Path, allowed_local_media_path: Path
-) -> None:
-    """Require a resolved local path to fall inside the allowlisted directory."""
-    try:
-        filepath.relative_to(allowed_local_media_path)
-    except ValueError:
-        raise ValueError(f"File path {filepath} is not within allowed directory.")
-
-
 def _resolve_local_file(
     filepath: str | Path, *, allowed_local_media_path: Path | None
 ) -> Path:
     """Resolve a local path, applying containment when an allowlist is set.
 
     Callers decide what a missing allowlist means: file:// URLs treat it as a
-    rejection, bare paths fall back to the trusted-local default. This helper
-    only resolves the path and, when an allowlist is configured, requires the
-    result to fall inside it.
+    rejection, bare paths fall back to the trusted-local default.
     """
     resolved = Path(filepath).expanduser().resolve()
-    if allowed_local_media_path is not None:
-        _assert_path_within_allowed_directory(resolved, allowed_local_media_path)
+    if allowed_local_media_path is not None and not resolved.is_relative_to(
+        allowed_local_media_path
+    ):
+        raise ValueError(f"File path {resolved} is not within allowed directory.")
     return resolved
 
 

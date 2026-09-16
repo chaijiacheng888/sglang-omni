@@ -38,23 +38,6 @@ class _RecordingMediaIO(MediaIO[Path]):
         return filepath
 
 
-def _symlink_escape(tmp_path: Path) -> Path:
-    """Build a symlink inside the allowlist that points outside it."""
-    allowed = tmp_path / "allowed"
-    allowed.mkdir()
-    outside = tmp_path / "outside.wav"
-    outside.write_bytes(b"RIFF")
-    link = allowed / "escape.wav"
-    try:
-        link.symlink_to(outside)
-    except OSError as exc:  # Windows without developer mode cannot create symlinks.
-        pytest.skip(f"symlink creation unsupported: {exc}")
-    return link
-
-
-# Bare local paths (load_local_path)
-
-
 def test_load_local_path_allowed_without_allowlist(tmp_path: Path) -> None:
     audio = tmp_path / "ref.wav"
     audio.write_bytes(b"RIFF")
@@ -110,8 +93,17 @@ def test_load_local_path_rejects_traversal_escape(tmp_path: Path) -> None:
 
 
 def test_load_local_path_rejects_symlink_escape(tmp_path: Path) -> None:
-    link = _symlink_escape(tmp_path)
-    connector = MultiModalResourceConnector(allowed_local_media_path=link.parent)
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside = tmp_path / "outside.wav"
+    outside.write_bytes(b"RIFF")
+    link = allowed / "escape.wav"
+    try:
+        link.symlink_to(outside)
+    except OSError as exc:  # Windows without developer mode cannot create symlinks.
+        pytest.skip(f"symlink creation unsupported: {exc}")
+
+    connector = MultiModalResourceConnector(allowed_local_media_path=allowed)
     media_io = _RecordingMediaIO()
 
     with pytest.raises(ValueError, match="not within allowed directory"):
@@ -120,14 +112,11 @@ def test_load_local_path_rejects_symlink_escape(tmp_path: Path) -> None:
     assert media_io.loaded_paths == []
 
 
-# file:// references (unchanged policy, now sharing the same resolver)
-
-
 def test_file_url_rejection_never_reaches_media_io(tmp_path: Path) -> None:
     """A rejected file:// reference must be refused before any I/O.
 
     The reference carries a ".." segment, so this also pins that the path is
-    normalized before containment is checked: relative_to() alone would accept
+    normalized before containment is checked: is_relative_to() alone would accept
     <allowed>/../outside.wav.
     """
     allowed = tmp_path / "allowed"

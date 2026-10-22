@@ -127,9 +127,8 @@ class NpuDeviceGraphBackend:
             kwargs["capture_error_mode"] = "thread_local"
         else:
             pass
-        # note (chaijiacheng): aclop ops cannot run during capture; disabling
-        # internal formats selects aclnn, and the default is restored afterwards.
-        # The option is process-global; the LM and codec captures run sequentially.
+        # note : aclop ops cannot run during capture; disabling internal formats selects
+        # aclnn, and the default is restored afterwards.The option is process-global;
         torch.npu.config.allow_internal_format = False
         try:
             capture = torch.npu.graph(npu_graph=graph, **kwargs)

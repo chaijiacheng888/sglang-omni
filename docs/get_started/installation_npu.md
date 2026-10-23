@@ -150,22 +150,6 @@ required. Model-specific inputs belong in the corresponding cookbook, such as
 the [Qwen3-TTS guide](../cookbook/qwen3_tts.md); GPU-specific configurations
 there should not be assumed to work unchanged on NPU.
 
-### PersonaPlex
-
-PersonaPlex runs on one NPU. The platform enables the Mimi streaming decode
-graphs; the backbone graph is off by default on non-CUDA platforms, so pass
-`--lm.engine.disable_cuda_graph false` to replay it:
-
-```bash
-sgl-omni serve \
-  --model-path <model-path> \
-  --host 0.0.0.0 --port 8000 \
-  --lm.engine.disable_cuda_graph false
-```
-
-See the [PersonaPlex guide](../cookbook/personaplex.md) for request parameters
-and known limitations.
-
 ## Option B: Manual install
 
 Install the Ascend software stack and NPU build of SGLang before installing

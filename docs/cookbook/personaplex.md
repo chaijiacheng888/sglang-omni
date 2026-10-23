@@ -14,7 +14,9 @@ hf download nvidia/personaplex-7b-v1
 
 It ships the 7B weights, the Mimi codec, the SentencePiece text model and `voices.tgz`, which is unpacked into `voices/` next to the checkpoint on first use, or into the temp directory when that folder cannot be written. Recorded voice prompts (`--voice some.wav`) also need `pip install pyloudnorm`; the packaged `.pt` voices do not.
 
-Everything runs on one GPU. On an H200 the LM engine reserves `mem_fraction_static=0.3` and the two Mimi instances stay under 1 GB each. This value is a fraction of total device memory, so a smaller-memory device can need a higher fraction to fit the model weights. Ascend NPU is supported too; the backbone graph is off by default there, so pass `--lm.engine.disable_cuda_graph false` to replay it.
+Everything runs on one GPU. On an H200 the LM engine reserves `mem_fraction_static=0.3` and the two Mimi instances stay under 1 GB each. This value is a fraction of total device memory, so a smaller-memory device can need a higher fraction to fit the model weights.
+
+It's ok to run it on Ascend NPU hardware, the only difference thing is set `--lm.engine.disable_cuda_graph false` in luanch command.
 
 The Mimi encoder stage loads only its encoding path, and Code2Wav loads only its
 decoding path. Both retain the codebooks and quantizer projections their path
